@@ -17,7 +17,7 @@ Broken HTML: ${brokenHtml}`;
 
     const completion = await groq.chat.completions.create({
         messages: [{ role: "user", content: prompt }],
-        model: "llama3-8b-8192", // Fast, open-weight model ideal for CLI tools
+        model: "llama-3.1-8b-instant", // Fast, open-weight model ideal for CLI tools
         temperature: 0.1, // Low temperature for deterministic, factual code output
     });
 
