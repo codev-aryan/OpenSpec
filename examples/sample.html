@@ -1,18 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Inaccessible Page</title>
-</head>
-<body>
-    <h1>Welcome to My FOSS App</h1>
-    
-    <img src="logo.png">
-    
-    <button>
-        <svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>
-    </button>
+<html>
+  <head>
+    <!-- Intentionally missing lang attribute on <html> tag -->
+    <title>OpenSpec Test Page</title>
+  </head>
+  <body>
 
-    <input type="text" placeholder="Search...">
-</body>
+    <!-- VIOLATION 1: <img> is missing an alt attribute -->
+    <img src="hero.png" />
+
+    <!-- VIOLATION 2: <button> has no discernible text (icon-only, no aria-label) -->
+    <button onclick="openMenu()">☰</button>
+
+    <!-- VIOLATION 3: <input> has no associated <label> -->
+    <input type="text" placeholder="Search..." />
+
+    <!-- VIOLATION 4: Form fields with no labels and poor contrast -->
+    <form>
+      <input type="email" placeholder="Enter your email" />
+      <input type="password" placeholder="Password" />
+      <button type="submit">Go</button>
+    </form>
+
+    <!-- VIOLATION 5: Link with non-descriptive text ("click here") -->
+    <a href="/report">Click here</a>
+
+    <!-- VIOLATION 6: Heading order is skipped (goes from h1 to h4) -->
+    <h1>Welcome</h1>
+    <h4>Our Services</h4>
+
+  </body>
 </html>
