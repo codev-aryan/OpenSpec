@@ -12,7 +12,7 @@
 
 <br/>
 
-> **Audit. Understand. Fix.** — OpenSpec goes beyond reporting accessibility errors. It fixes them.
+> **Audit. Understand. Fix.** — OpenSpec doesn't just report accessibility errors. It eliminates them.
 
 </div>
 
@@ -24,49 +24,61 @@
 
 Every major accessibility tool — Lighthouse, axe DevTools, WAVE — stops at the same place: a list of violations. They hand you a report and walk away. The result? Developers are buried under cryptic rule IDs, documentation rabbit holes, and manual fixes that take hours.
 
-The web has a massive accessibility debt, and the current tooling makes developers the ones who pay it.
+The web has a massive accessibility debt. The existing tooling makes developers the ones who pay it.
 
 ---
 
 ## The Solution
 
-**OpenSpec** is a lightweight, open-source CLI tool that closes the loop. It audits your HTML, understands your violations, and hands you back corrected code — in seconds.
+**OpenSpec** is a lightweight, open-source CLI tool that closes the loop. It audits your HTML, understands each violation, and hands you back corrected code — in seconds.
 
 ```
-$ node index.js ./my-page.html
+$ node index.js ./examples/sample.html
 
-  Auditing: my-page.html
-  Found 7 accessibility violations.
-  Generating WCAG-compliant fixes via Llama 3...
+  ⚡ OpenSpec — Self-Healing Accessibility
+  Powered by axe-core + Llama 3 via Groq
 
-  ── Before ──────────────────────────────────────────
-  - <img src="hero.png">
-  - <button onclick="openMenu()">☰</button>
-  - <input type="text" placeholder="Search...">
+  Auditing: sample.html
+  Found 6 accessibility violation(s).
+  Generating fixes for the first 2...
 
-  ── After ───────────────────────────────────────────
-  + <img src="hero.png" alt="Hero banner showing the product dashboard">
-  + <button onclick="openMenu()" aria-label="Open navigation menu">☰</button>
-  + <input type="text" placeholder="Search..." aria-label="Search the site">
+  ════════════════════════════════════════════════════════════
+  VIOLATION 1  [image-alt]
+  Impact: CRITICAL
+  Ensures <img> elements have alternate text or a role of none or presentation.
+
+  ────────────────────────────────────────────────────────────
+  🔴  BEFORE
+
+  - <img src="hero.png" />
+
+  ────────────────────────────────────────────────────────────
+  🟢  AFTER  (AI-generated fix)
+
+  + <img src="hero.png" alt="Hero banner showing the product dashboard" />
+
+  ════════════════════════════════════════════════════════════
+
+  ✔ Done. Processed 2 of 6 violation(s) found.
 ```
 
-No boilerplate. No config files. No cloud uploads. Just your file, fixed.
+No boilerplate. No config files. No data leaves your machine except to the Groq inference API. Just your file, fixed.
 
 ---
 
 ## Key Features
 
-- **🔍 Powered by `axe-core`** — The industry-standard accessibility engine trusted by Google, Microsoft, and Deloitte. Not a custom parser — battle-tested WCAG 2.1/2.2 rule coverage.
+- **🔍 Powered by `axe-core`** — The industry-standard accessibility engine trusted by Google, Microsoft, and Deloitte. Not a custom parser — battle-tested WCAG 2.1/2.2 rule coverage running inside `jsdom`, no real browser required.
 
-- **🤖 AI-Generated Fixes, Not Just Reports** — Uses the Groq API (Llama 3) to read the violation context and generate semantically correct, human-readable ARIA attributes and HTML corrections.
+- **🤖 AI-Generated Fixes, Not Just Reports** — Uses the Groq API (Llama 3) to read each violation in context and generate semantically correct, human-readable ARIA attributes and HTML corrections.
 
-- **⚡ Fast by Design** — Groq's inference API is one of the fastest available. Fixes return in under 3 seconds on typical pages. No GPU required on your machine.
+- **⚡ Fast by Design** — Groq's inference layer is among the fastest available. Fixes return in under 3 seconds per violation. No GPU, no Docker, no local model weights.
 
-- **🔁 Side-by-Side Diff** — Every fix is shown as a clean Before/After diff directly in the terminal. See exactly what changed and why.
+- **🎨 Color-Coded Terminal Diff** — Every fix renders as a Before/After diff with ANSI color highlighting. Impact severity (Critical / Serious / Moderate / Minor) is color-coded at a glance.
 
-- **📦 Truly Lightweight** — Five dependencies. No Electron, no browser extension, no SaaS subscription. Runs anywhere Node.js runs.
+- **📦 Truly Lightweight** — Four runtime dependencies. No Electron, no browser extension, no SaaS subscription. Runs anywhere Node.js 18+ runs.
 
-- **🔓 100% Open Source** — MIT licensed. The fix logic, the prompt, the diff renderer — all of it is yours to inspect, fork, and improve.
+- **🔓 100% Open Source** — MIT licensed. The audit logic, the AI prompt, the diff renderer — all of it is yours to inspect, fork, and extend.
 
 ---
 
@@ -74,20 +86,19 @@ No boilerplate. No config files. No cloud uploads. Just your file, fixed.
 
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js 18+ |
+| Runtime | Node.js 18+ (CommonJS) |
 | Accessibility Engine | `axe-core` + `jsdom` |
-| AI / LLM | Groq API · Llama 3 (open-weight) |
+| AI / LLM | Groq API · Llama 3 `llama3-8b-8192` (open-weight) |
 | Environment Config | `dotenv` |
+| Terminal UI | Raw ANSI escape codes (zero extra deps) |
 | License | MIT |
 
 ---
 
 ## Prerequisites
 
-Before you begin, ensure you have the following:
-
 - **Node.js v18 or higher** — [Download here](https://nodejs.org/). Verify with `node --version`.
-- **A Groq API Key** — Free tier available. Get yours at [console.groq.com](https://console.groq.com). No credit card required.
+- **A Groq API Key** — Free tier available, no credit card required. Get yours at [console.groq.com](https://console.groq.com).
 
 ---
 
@@ -106,21 +117,21 @@ cd openspec
 npm install
 ```
 
-**3. Configure your environment**
+This installs: `axe-core`, `jsdom`, `groq-sdk`, `dotenv`.
 
-Create a `.env` file in the project root:
+**3. Configure your environment**
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and add your Groq API key:
+Open `.env` and add your key:
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-> **Note:** Your API key is never sent anywhere except directly to the Groq API. OpenSpec has no telemetry and no remote servers.
+> **Privacy note:** Your API key is read locally by `dotenv`. OpenSpec has no telemetry, no analytics, and no remote servers beyond the Groq inference API call you explicitly trigger.
 
 ---
 
@@ -132,19 +143,28 @@ Point OpenSpec at any local HTML file:
 node index.js <path-to-html-file>
 ```
 
-**Example:**
+**Run against the included broken example:**
 
 ```bash
 node index.js ./examples/sample.html
 ```
 
-**What happens next:**
+`examples/sample.html` is a deliberately inaccessible page containing 6 violations across missing `alt` tags, unlabelled form inputs, icon-only buttons, non-descriptive link text, and skipped heading levels — designed to demonstrate OpenSpec's full range.
 
-1. OpenSpec loads your HTML into a `jsdom` environment.
-2. `axe-core` runs a full WCAG 2.1 audit and returns all violations.
-3. The violations and the relevant HTML nodes are sent to Llama 3 via Groq.
-4. The corrected code is returned and displayed as a terminal diff.
-5. *(Optional)* The fixed HTML is written to `<filename>.fixed.html`.
+**Tune how many violations are auto-fixed per run:**
+
+Open `index.js` and adjust this constant near the top:
+
+```js
+const MAX_VIOLATIONS = 2; // increase to process more violations per run
+```
+
+**What happens when you run it:**
+
+1. OpenSpec reads your HTML file from disk.
+2. `jsdom` constructs a virtual DOM and `axe-core` runs a full WCAG 2.1 audit.
+3. Each violation's broken HTML node is extracted and sent to Llama 3 via Groq with a strict, low-temperature prompt.
+4. The corrected HTML is returned and rendered as a color-coded Before/After diff in the terminal.
 
 ---
 
@@ -154,7 +174,7 @@ node index.js ./examples/sample.html
 
 [![OpenSpec Demo](https://img.shields.io/badge/Watch%20Demo-YouTube-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=PLACEHOLDER)
 
-*The demo covers: running an audit on a real-world HTML snippet, reviewing the violations report, and seeing the AI-generated diff fix 7 issues in under 5 seconds.*
+*The demo covers: running an audit on `sample.html`, reviewing the CRITICAL/SERIOUS impact breakdown, and watching Llama 3 fix 2 violations live in under 6 seconds.*
 
 ---
 
@@ -162,33 +182,48 @@ node index.js ./examples/sample.html
 
 ```
 openspec/
-├── index.js          # Main CLI entry point and orchestrator
-├── auditor.js        # Core accessibility engine (axe-core + jsdom)
-├── fixer.js          # AI logic and prompt engineering (Groq API)
-├── diff.js           # Terminal UI and Before/After diff rendering
-├── .env.example      # Environment variable template for contributors
+├── index.js          # CLI entry point and orchestrator — thin by design
+├── auditor.js        # axe-core + jsdom: virtual DOM audit engine
+├── fixer.js          # Groq SDK + Llama 3: prompt engineering and fix generation
+├── diff.js           # Terminal UI: ANSI color diff renderer, zero extra deps
+├── .env.example      # Environment variable template
 ├── package.json      # Node.js dependencies
 ├── LICENSE           # MIT License
-├── README.md         # Project documentation and roadmap
+├── README.md         # You are here
 └── examples/
-    └── sample.html   # Deliberately broken HTML file for testing
+    └── sample.html   # Deliberately broken HTML with 6 WCAG violations
 ```
+
+Each module owns exactly one concern. `index.js` contains no business logic — only orchestration. `auditor.js`, `fixer.js`, and `diff.js` are independently testable and swappable without touching the rest of the codebase.
+
+---
+
+## How the AI Fix Works
+
+The prompt sent to Llama 3 is intentionally strict:
+
+- The system prompt constrains the model to act as a pure **code transformer**, not an explainer — it must return raw HTML and nothing else.
+- `temperature: 0.2` keeps output deterministic and prevents the model from adding markdown fences, prose, or creative rewrites.
+- Each call receives only the single failing HTML node and its axe-core rule description — no surrounding page context that could dilute the output.
+
+The returned string is dropped directly into the terminal diff with no post-processing required.
 
 ---
 
 ## Roadmap
 
 - [ ] Watch mode (`--watch`) for live re-auditing on file save
-- [ ] JSON/HTML report output flag (`--output report.json`)
-- [ ] Support for auditing a live URL (not just local files)
+- [ ] `--output report.json` flag for structured violation + fix export
+- [ ] Write the fully-fixed HTML to `<filename>.fixed.html` automatically
+- [ ] Support for auditing a live URL, not just local files
 - [ ] VS Code extension wrapper
-- [ ] Batch mode for auditing entire directories
+- [ ] Batch mode for entire directories
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please open an issue before submitting a pull request for major changes.
+Contributions are welcome. Please open an issue before submitting a pull request for significant changes.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/your-feature`)
