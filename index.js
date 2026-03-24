@@ -5,13 +5,13 @@
  *
  * Execution flow:
  *   1. Load environment variables from .env (Groq API key).
- *   2. Read the target HTML file from disk.
+ *   2. Read the target — either a local HTML file or a live URL (--url).
  *   3. Audit it using axe-core (auditor.js) and collect violations.
  *   4. For each violation (up to MAX_VIOLATIONS), extract the broken HTML
  *      snippet and send it to the Groq/Llama 3 fixer (fixer.js).
  *   5. Render the Before/After diff to the terminal (diff.js).
- *   6. If --fix is passed, apply all fixes to the original HTML and write
- *      a corrected copy to <filename>.fixed.html on disk.
+ *   6. If --fix is passed (file mode only), apply all fixes to the original
+ *      HTML and write a corrected copy to <filename>.fixed.html on disk.
  *
  * Architecture Note (FOSS):
  *   This file is intentionally thin. It contains no business logic —
@@ -25,6 +25,8 @@
  *   node index.js ./examples/sample.html --fix
  *   node index.js ./examples/sample.html --strict
  *   node index.js ./examples/sample.html --fix --strict
+ *   node index.js --url https://example.com
+ *   node index.js --url https://example.com --strict
  */
 
 "use strict";
@@ -35,7 +37,7 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 
-const { auditHtml } = require("./auditor");
+const { auditHtml, auditUrl } = require("./auditor");
 const { fixViolation } = require("./fixer");
 const { printBanner, printDiff, printSummary, printFixWritten } = require("./diff");
 
@@ -62,32 +64,68 @@ async function main() {
 
   // Parse CLI arguments.
   // Flags can appear in any position after the binary name.
-  //   --fix    write a .fixed.html file to disk after generating fixes
+  //   --url    audit a live URL instead of a local file (e.g. --url https://example.com)
+  //   --fix    write a .fixed.html file to disk after generating fixes (file mode only)
   //   --strict exit with code 1 if any violations are found (for CI gates)
   const args = process.argv.slice(2);
   const fixFlag = args.includes("--fix");
   const strictFlag = args.includes("--strict");
-  const fileArg = args.find((a) => !a.startsWith("--"));
 
-  // Resolve the target HTML file path.
-  // Defaults to examples/sample.html if no argument is provided.
-  const targetPath = fileArg
-    ? path.resolve(fileArg)
-    : path.resolve(__dirname, "examples", "sample.html");
+  // --url <value>: find the flag then grab the next token as its value.
+  const urlFlagIndex = args.indexOf("--url");
+  const urlTarget = urlFlagIndex !== -1 ? args[urlFlagIndex + 1] : null;
 
-  // Verify the file exists before proceeding.
-  if (!fs.existsSync(targetPath)) {
-    console.error(`  ✖ Error: File not found — ${targetPath}\n`);
-    process.exit(1);
+  // Any non-flag argument that isn't the value after --url is the file path.
+  const fileArg = args.find((a, i) => !a.startsWith("--") && i !== urlFlagIndex + 1);
+
+  // ── Resolve the audit target ───────────────────────────────────────────────
+  let htmlContent = null;    // populated in file mode; null in URL mode
+  let targetLabel = null;    // display name shown in the terminal header
+
+  if (urlTarget) {
+    // URL mode — validate it looks like an absolute URL before attempting fetch.
+    if (!/^https?:\/\/.+/.test(urlTarget)) {
+      console.error(
+        `  ✖ Error: Invalid URL — "${urlTarget}"\n` +
+        "  URLs must start with http:// or https://\n"
+      );
+      process.exit(1);
+    }
+
+    // Warn clearly that --fix is incompatible with URL mode.
+    // We have no local file to write back to, so silently ignoring it
+    // would confuse users who expect a .fixed.html to appear.
+    if (fixFlag) {
+      console.warn(
+        "  ⚠  --fix is not supported in URL mode (no local file to write to).\n" +
+        "  The diff will still be shown in the terminal.\n"
+      );
+    }
+
+    targetLabel = urlTarget;
+  } else {
+    // File mode — resolve path and read content from disk.
+    const targetPath = fileArg
+      ? path.resolve(fileArg)
+      : path.resolve(__dirname, "examples", "sample.html");
+
+    if (!fs.existsSync(targetPath)) {
+      console.error(`  ✖ Error: File not found — ${targetPath}\n`);
+      process.exit(1);
+    }
+
+    htmlContent = fs.readFileSync(targetPath, "utf-8");
+    targetLabel = path.basename(targetPath);
   }
 
-  const htmlContent = fs.readFileSync(targetPath, "utf-8");
-  console.log(`  Auditing: ${path.basename(targetPath)}\n`);
+  console.log(`  Auditing: ${targetLabel}\n`);
 
   // ── Step 1: Audit ─────────────────────────────────────────────────────────
   let violations;
   try {
-    violations = await auditHtml(htmlContent);
+    violations = urlTarget
+      ? await auditUrl(urlTarget)
+      : await auditHtml(htmlContent);
   } catch (err) {
     console.error("  ✖ Audit failed:", err.message);
     process.exit(1);
@@ -143,8 +181,8 @@ async function main() {
     });
   }
 
-  // ── Step 3: Write fixed file to disk (--fix) ──────────────────────────────
-  if (fixFlag) {
+  // ── Step 3: Write fixed file to disk (--fix, file mode only) ─────────────
+  if (fixFlag && !urlTarget) {
     if (appliedFixes.length === 0) {
       console.log("  ℹ  --fix: No successful fixes to apply.\n");
     } else {
@@ -157,6 +195,7 @@ async function main() {
       }
 
       // Write to <originalname>.fixed.html in the same directory as the source.
+      const targetPath = path.resolve(fileArg || path.join(__dirname, "examples", "sample.html"));
       const ext = path.extname(targetPath);
       const base = path.basename(targetPath, ext);
       const outputPath = path.join(path.dirname(targetPath), `${base}.fixed${ext}`);

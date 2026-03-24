@@ -18,20 +18,13 @@ const { JSDOM } = require("jsdom");
 const axe = require("axe-core");
 
 /**
- * Audits an HTML string for WCAG accessibility violations.
+ * Internal helper — injects axe-core into a jsdom window and runs the audit.
+ * Shared by both auditHtml and auditUrl so the engine logic lives in one place.
  *
- * @param {string} htmlString - The raw HTML content to audit.
- * @returns {Promise<Array>} A promise that resolves to an array of axe violation objects.
- *   Each violation has: id, description, impact, nodes (with html snippets).
+ * @param {object} dom - A JSDOM instance (already constructed or fetched).
+ * @returns {Promise<Array>} axe violation objects.
  */
-async function auditHtml(htmlString) {
-  // Set up a virtual browser environment using jsdom.
-  // The `runScripts` option is needed for axe-core to execute inside the DOM.
-  const dom = new JSDOM(htmlString, {
-    runScripts: "dangerously",
-    resources: "usable",
-  });
-
+async function _runAxe(dom) {
   const { window } = dom;
   const { document } = window;
 
@@ -49,4 +42,46 @@ async function auditHtml(htmlString) {
   return results.violations;
 }
 
-module.exports = { auditHtml };
+/**
+ * Audits an HTML string for WCAG accessibility violations.
+ *
+ * @param {string} htmlString - The raw HTML content to audit.
+ * @returns {Promise<Array>} A promise that resolves to an array of axe violation objects.
+ *   Each violation has: id, description, impact, nodes (with html snippets).
+ */
+async function auditHtml(htmlString) {
+  // Set up a virtual browser environment using jsdom.
+  // The `runScripts` option is needed for axe-core to execute inside the DOM.
+  const dom = new JSDOM(htmlString, {
+    runScripts: "dangerously",
+    resources: "usable",
+  });
+
+  return _runAxe(dom);
+}
+
+/**
+ * Fetches a live URL and audits the resulting DOM for WCAG accessibility violations.
+ * Uses JSDOM.fromURL() which handles the HTTP request and DOM construction in one step.
+ *
+ * Note: JSDOM renders the initial HTML payload only — it does not execute JavaScript
+ * or wait for client-side rendering. This means SPAs may show fewer violations than
+ * a real browser would, but static and server-rendered sites audit accurately.
+ *
+ * @param {string} url - A fully-qualified URL (https://example.com).
+ * @returns {Promise<Array>} A promise that resolves to an array of axe violation objects.
+ */
+async function auditUrl(url) {
+  // JSDOM.fromURL fetches the page over HTTP/S and constructs the DOM.
+  // pretendToBeVisual gives axe-core a realistic layout environment so
+  // visibility-related rules (e.g. color-contrast) can run correctly.
+  const dom = await JSDOM.fromURL(url, {
+    runScripts: "dangerously",
+    resources: "usable",
+    pretendToBeVisual: true,
+  });
+
+  return _runAxe(dom);
+}
+
+module.exports = { auditHtml, auditUrl };
