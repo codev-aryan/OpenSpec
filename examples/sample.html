@@ -1,33 +1,46 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <!-- Intentionally missing lang attribute on <html> tag -->
-    <title>OpenSpec Test Page</title>
+    <meta charset="UTF-8" />
+    <title>OpenSpec Sample Page</title>
+    <style>
+      body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+
+      /* VIOLATION 6: color-contrast — light grey text on white background fails WCAG AA */
+      .disclaimer { color: #aaaaaa; background: #ffffff; font-size: 14px; }
+    </style>
   </head>
   <body>
 
-    <!-- VIOLATION 1: <img> is missing an alt attribute -->
+    <!-- VIOLATION 1: image-alt — <img> with no alt attribute -->
     <img src="hero.png" />
 
-    <!-- VIOLATION 2: <button> has no discernible text (icon-only, no aria-label) -->
-    <button onclick="openMenu()">☰</button>
+    <!-- valid heading to start -->
+    <h1>Welcome to our site</h1>
 
-    <!-- VIOLATION 3: <input> has no associated <label> -->
-    <input type="text" placeholder="Search..." />
+    <!-- VIOLATION 2: heading-order — jumps from h1 straight to h4, skipping h2 and h3 -->
+    <h4>Our Features</h4>
+    <p>We build great things for great people.</p>
 
-    <!-- VIOLATION 4: Form fields with no labels and poor contrast -->
+    <!-- VIOLATION 3: label — input has no associated <label> or aria-label -->
     <form>
       <input type="email" placeholder="Enter your email" />
-      <input type="password" placeholder="Password" />
-      <button type="submit">Go</button>
+      <button type="submit">Subscribe</button>
     </form>
 
-    <!-- VIOLATION 5: Link with non-descriptive text ("click here") -->
-    <a href="/report">Click here</a>
+    <!-- VIOLATION 4: button-name — button contains only an icon character, no accessible label -->
+    <button>🔍</button>
 
-    <!-- VIOLATION 6: Heading order is skipped (goes from h1 to h4) -->
-    <h1>Welcome</h1>
-    <h4>Our Services</h4>
+    <!-- VIOLATION 5: link-name — anchor text gives no description of the destination -->
+    <p>
+      To learn more about accessibility guidelines, please
+      <a href="https://www.w3.org/WAI/WCAG21/quickref/">click here</a>.
+    </p>
+
+    <!-- VIOLATION 6: color-contrast — text color #aaaaaa on white fails AA contrast ratio -->
+    <p class="disclaimer">
+      This site is for demonstration purposes only. Content may not be accurate.
+    </p>
 
   </body>
 </html>
