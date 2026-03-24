@@ -191,7 +191,7 @@ async function main() {
       // specific failing node snippets that axe-core and the AI both touched.
       let patchedHtml = htmlContent;
       for (const { brokenHtml, fixedHtml } of appliedFixes) {
-        patchedHtml = patchedHtml.replace(brokenHtml, fixedHtml);
+        patchedHtml = patchedHtml.replaceAll(brokenHtml, fixedHtml);
       }
 
       // Write to <originalname>.fixed.html in the same directory as the source.
