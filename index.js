@@ -10,6 +10,8 @@
  *   4. For each violation (up to MAX_VIOLATIONS), extract the broken HTML
  *      snippet and send it to the Groq/Llama 3 fixer (fixer.js).
  *   5. Render the Before/After diff to the terminal (diff.js).
+ *   6. If --fix is passed, apply all fixes to the original HTML and write
+ *      a corrected copy to <filename>.fixed.html on disk.
  *
  * Architecture Note (FOSS):
  *   This file is intentionally thin. It contains no business logic —
@@ -20,6 +22,9 @@
  * Usage:
  *   node index.js [path-to-html-file]
  *   node index.js ./examples/sample.html
+ *   node index.js ./examples/sample.html --fix
+ *   node index.js ./examples/sample.html --strict
+ *   node index.js ./examples/sample.html --fix --strict
  */
 
 "use strict";
@@ -32,7 +37,7 @@ const path = require("path");
 
 const { auditHtml } = require("./auditor");
 const { fixViolation } = require("./fixer");
-const { printBanner, printDiff, printSummary } = require("./diff");
+const { printBanner, printDiff, printSummary, printFixWritten } = require("./diff");
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -55,10 +60,19 @@ async function main() {
     process.exit(1);
   }
 
+  // Parse CLI arguments.
+  // Flags can appear in any position after the binary name.
+  //   --fix    write a .fixed.html file to disk after generating fixes
+  //   --strict exit with code 1 if any violations are found (for CI gates)
+  const args = process.argv.slice(2);
+  const fixFlag = args.includes("--fix");
+  const strictFlag = args.includes("--strict");
+  const fileArg = args.find((a) => !a.startsWith("--"));
+
   // Resolve the target HTML file path.
   // Defaults to examples/sample.html if no argument is provided.
-  const targetPath = process.argv[2]
-    ? path.resolve(process.argv[2])
+  const targetPath = fileArg
+    ? path.resolve(fileArg)
     : path.resolve(__dirname, "examples", "sample.html");
 
   // Verify the file exists before proceeding.
@@ -92,6 +106,10 @@ async function main() {
   // avoid flooding the Groq API with concurrent requests.
   const toProcess = violations.slice(0, MAX_VIOLATIONS);
 
+  // Accumulate {brokenHtml, fixedHtml} pairs so we can apply them to disk
+  // at the end if --fix was passed. Pairs with failed fixes are skipped.
+  const appliedFixes = [];
+
   for (let i = 0; i < toProcess.length; i++) {
     const violation = toProcess[i];
 
@@ -106,6 +124,8 @@ async function main() {
         violation.description,
         violation.id
       );
+      // Only track pairs where the AI actually returned a fix.
+      appliedFixes.push({ brokenHtml, fixedHtml });
     } catch (err) {
       // If the AI fix fails for one violation, log the error and continue
       // processing the remaining ones rather than crashing entirely.
@@ -123,7 +143,36 @@ async function main() {
     });
   }
 
-  printSummary(violations.length, toProcess.length);
+  // ── Step 3: Write fixed file to disk (--fix) ──────────────────────────────
+  if (fixFlag) {
+    if (appliedFixes.length === 0) {
+      console.log("  ℹ  --fix: No successful fixes to apply.\n");
+    } else {
+      // Apply each fix as a simple string replacement on the original HTML.
+      // This preserves all surrounding markup exactly — we only swap out the
+      // specific failing node snippets that axe-core and the AI both touched.
+      let patchedHtml = htmlContent;
+      for (const { brokenHtml, fixedHtml } of appliedFixes) {
+        patchedHtml = patchedHtml.replace(brokenHtml, fixedHtml);
+      }
+
+      // Write to <originalname>.fixed.html in the same directory as the source.
+      const ext = path.extname(targetPath);
+      const base = path.basename(targetPath, ext);
+      const outputPath = path.join(path.dirname(targetPath), `${base}.fixed${ext}`);
+
+      fs.writeFileSync(outputPath, patchedHtml, "utf-8");
+      printFixWritten(outputPath, appliedFixes.length);
+    }
+  }
+
+  printSummary(violations.length, toProcess.length, fixFlag, strictFlag);
+
+  // In strict mode, exit 1 so CI pipelines treat unresolved violations
+  // as a build failure. Without --strict, always exit 0 for local dev flows.
+  if (strictFlag && violations.length > 0) {
+    process.exit(1);
+  }
 }
 
 main();

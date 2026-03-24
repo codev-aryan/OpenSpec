@@ -126,11 +126,31 @@ function printBanner() {
 }
 
 /**
+ * Prints a confirmation that the fixed HTML file was written to disk.
+ * @param {string} outputPath - Absolute path of the written file.
+ * @param {number} count - Number of fixes applied.
+ */
+function printFixWritten(outputPath, count) {
+  console.log("\n");
+  printRule("─");
+  console.log(
+    style("  💾  Fixed file written: ", ANSI.bold, ANSI.green) +
+    style(outputPath, ANSI.cyan)
+  );
+  console.log(
+    style(`  ${count} fix(es) applied to the original HTML.`, ANSI.dim)
+  );
+  printRule("─");
+}
+
+/**
  * Prints a summary line after all violations have been processed.
  * @param {number} total - Total violations found.
  * @param {number} fixed - Total violations fixed in this run.
+ * @param {boolean} [writeMode=false] - Whether --fix was passed.
+ * @param {boolean} [strictMode=false] - Whether --strict was passed.
  */
-function printSummary(total, fixed) {
+function printSummary(total, fixed, writeMode = false, strictMode = false) {
   console.log("\n");
   printRule("─");
   console.log(
@@ -145,8 +165,18 @@ function printSummary(total, fixed) {
       )
     );
   }
+  if (!writeMode) {
+    console.log(
+      style("  ℹ  Tip: run with --fix to write a corrected .fixed.html file to disk.", ANSI.dim)
+    );
+  }
+  if (total > 0 && !strictMode) {
+    console.log(
+      style("  ℹ  Tip: run with --strict to exit 1 on violations — use this in CI to gate deploys.", ANSI.dim)
+    );
+  }
   printRule("─");
   console.log("\n");
 }
 
-module.exports = { printBanner, printDiff, printSummary };
+module.exports = { printBanner, printDiff, printSummary, printFixWritten };
