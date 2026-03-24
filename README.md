@@ -88,7 +88,7 @@ No boilerplate. No config files. No data leaves your machine except to the Groq 
 |---|---|
 | Runtime | Node.js 18+ (CommonJS) |
 | Accessibility Engine | `axe-core` + `jsdom` |
-| AI / LLM | Groq API · Llama 3 `llama3-8b-8192` (open-weight) |
+| AI / LLM | Groq API · Llama 3 `llama-3.1-8b-instant` (open-weight) |
 | Environment Config | `dotenv` |
 | Terminal UI | Raw ANSI escape codes (zero extra deps) |
 | License | MIT |
