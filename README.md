@@ -60,6 +60,8 @@ $ node index.js ./examples/sample.html
   ════════════════════════════════════════════════════════════
 
   ✔ Done. Processed 2 of 6 violation(s) found.
+  ℹ  Tip: run with --fix to write a corrected .fixed.html file to disk.
+  ℹ  Tip: run with --strict to exit 1 on violations — use this in CI to gate deploys.
 ```
 
 No boilerplate. No config files. No data leaves your machine except to the Groq inference API. Just your file, fixed.
@@ -68,9 +70,15 @@ No boilerplate. No config files. No data leaves your machine except to the Groq 
 
 ## Key Features
 
-- **🔍 Powered by `axe-core`** — The industry-standard accessibility engine trusted by Google, Microsoft, and Deloitte. Not a custom parser — battle-tested WCAG 2.1/2.2 rule coverage running inside `jsdom`, no real browser required.
+- **🔍 Powered by `axe-core`** — The industry-standard accessibility engine trusted by Google, Microsoft, and Deloitte. Battle-tested WCAG 2.1/2.2 rule coverage running inside `jsdom`, no real browser required.
 
 - **🤖 AI-Generated Fixes, Not Just Reports** — Uses the Groq API (Llama 3) to read each violation in context and generate semantically correct, human-readable ARIA attributes and HTML corrections.
+
+- **🌐 Audit Files or Live URLs** — Point OpenSpec at a local HTML file or any live website with `--url https://example.com`. No browser, no Puppeteer, no Playwright.
+
+- **💾 Write Fixes to Disk** — Pass `--fix` to apply all AI-generated corrections and write the result to `<filename>.fixed.html`. The original is never modified.
+
+- **🚦 CI/CD Ready** — Pass `--strict` to exit with code `1` when violations are found. Drop it into any pipeline to gate deploys on accessibility.
 
 - **⚡ Fast by Design** — Groq's inference layer is among the fastest available. Fixes return in under 3 seconds per violation. No GPU, no Docker, no local model weights.
 
@@ -137,21 +145,49 @@ GROQ_API_KEY=your_groq_api_key_here
 
 ## Usage
 
-Point OpenSpec at any local HTML file:
+### Audit a local file
 
 ```bash
 node index.js <path-to-html-file>
 ```
 
-**Run against the included broken example:**
+### Audit a live URL
 
 ```bash
-node index.js ./examples/sample.html
+node index.js --url https://example.com
 ```
 
-`examples/sample.html` is a deliberately inaccessible page containing 6 violations across missing `alt` tags, unlabelled form inputs, icon-only buttons, non-descriptive link text, and skipped heading levels — designed to demonstrate OpenSpec's full range.
+> **Note:** URL mode audits the initial HTML payload returned by the server. JavaScript-rendered content (SPAs) may show fewer violations than a real browser would. Static and server-rendered sites audit accurately.
 
-**Tune how many violations are auto-fixed per run:**
+### Write fixes to disk
+
+```bash
+node index.js ./examples/sample.html --fix
+```
+
+Applies all AI-generated corrections to the original HTML and writes the result to `sample.fixed.html` in the same directory. The original file is never touched.
+
+### Gate CI deploys on accessibility
+
+```bash
+node index.js ./src/index.html --strict
+```
+
+Exits with code `1` if any violations are found. Exit `0` means clean. Combine with `--fix` for a full self-healing pipeline step.
+
+### Combining flags
+
+All flags are composable and can appear in any order:
+
+```bash
+# Audit a file, write fixes, and fail CI if violations remain
+node index.js ./src/index.html --fix --strict
+
+# Audit a live URL and fail CI if violations are found
+node index.js --url https://example.com --strict
+```
+
+### Tune how many violations are auto-fixed per run
 
 Open `index.js` and adjust this constant near the top:
 
@@ -159,12 +195,22 @@ Open `index.js` and adjust this constant near the top:
 const MAX_VIOLATIONS = 2; // increase to process more violations per run
 ```
 
-**What happens when you run it:**
+### GitHub Actions example
 
-1. OpenSpec reads your HTML file from disk.
-2. `jsdom` constructs a virtual DOM and `axe-core` runs a full WCAG 2.1 audit.
-3. Each violation's broken HTML node is extracted and sent to Llama 3 via Groq with a strict, low-temperature prompt.
-4. The corrected HTML is returned and rendered as a color-coded Before/After diff in the terminal.
+```yaml
+- name: Audit accessibility
+  run: node index.js ./src/index.html --strict
+```
+
+---
+
+## Run the included example
+
+```bash
+node index.js ./examples/sample.html
+```
+
+`examples/sample.html` is a deliberately inaccessible page containing 6 violations across missing `alt` tags, unlabelled form inputs, icon-only buttons, non-descriptive link text, and skipped heading levels — designed to demonstrate OpenSpec's full range.
 
 ---
 
@@ -183,7 +229,7 @@ const MAX_VIOLATIONS = 2; // increase to process more violations per run
 ```
 openspec/
 ├── index.js          # CLI entry point and orchestrator — thin by design
-├── auditor.js        # axe-core + jsdom: virtual DOM audit engine
+├── auditor.js        # axe-core + jsdom: virtual DOM audit engine (file + URL)
 ├── fixer.js          # Groq SDK + Llama 3: prompt engineering and fix generation
 ├── diff.js           # Terminal UI: ANSI color diff renderer, zero extra deps
 ├── .env.example      # Environment variable template
@@ -206,7 +252,18 @@ The prompt sent to Llama 3 is intentionally strict:
 - `temperature: 0.2` keeps output deterministic and prevents the model from adding markdown fences, prose, or creative rewrites.
 - Each call receives only the single failing HTML node and its axe-core rule description — no surrounding page context that could dilute the output.
 
-The returned string is dropped directly into the terminal diff with no post-processing required.
+The returned string is dropped directly into the terminal diff with no post-processing required. When `--fix` is passed, it is also applied back to the original HTML via surgical string replacement — only the exact failing nodes are swapped, everything else is preserved byte-for-byte.
+
+---
+
+## CLI Reference
+
+| Flag | Mode | Description |
+|---|---|---|
+| `<file>` | File | Path to a local HTML file to audit |
+| `--url <url>` | URL | Fetch and audit a live URL |
+| `--fix` | File only | Write AI-corrected HTML to `<filename>.fixed.html` |
+| `--strict` | Both | Exit code `1` if any violations are found |
 
 ---
 
@@ -214,10 +271,8 @@ The returned string is dropped directly into the terminal diff with no post-proc
 
 - [ ] Watch mode (`--watch`) for live re-auditing on file save
 - [ ] `--output report.json` flag for structured violation + fix export
-- [ ] Write the fully-fixed HTML to `<filename>.fixed.html` automatically
-- [ ] Support for auditing a live URL, not just local files
+- [ ] Support for auditing entire directories in batch mode
 - [ ] VS Code extension wrapper
-- [ ] Batch mode for entire directories
 
 ---
 
