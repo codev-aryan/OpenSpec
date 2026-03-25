@@ -22,6 +22,23 @@ const Groq = require("groq-sdk");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
+ * Strips markdown code fences that LLMs sometimes emit despite being
+ * instructed not to. Handles all of these variants:
+ *   ```html ... ```
+ *   ```HTML ... ```
+ *   ``` ... ```
+ *
+ * @param {string} text - Raw string returned by the model.
+ * @returns {string} Clean HTML with no surrounding fences.
+ */
+function _stripFences(text) {
+  return text
+    .replace(/^```[\w]*\n?/, "")  // opening fence + optional language tag
+    .replace(/\n?```$/, "")        // closing fence
+    .trim();
+}
+
+/**
  * Generates a WCAG-compliant fix for a broken HTML snippet.
  *
  * @param {string} brokenHtml - The raw HTML snippet containing the violation.
@@ -61,13 +78,16 @@ ${brokenHtml}`;
     max_tokens: 512,
   });
 
-  const fixedHtml = chatCompletion.choices[0]?.message?.content?.trim();
+  const raw = chatCompletion.choices[0]?.message?.content;
 
-  if (!fixedHtml) {
+  if (!raw || !raw.trim()) {
     throw new Error("Groq API returned an empty response for the fix.");
   }
 
-  return fixedHtml;
+  // Strip markdown fences before returning. Even at low temperature, Llama 3
+  // occasionally wraps output in ```html ... ``` despite the system prompt.
+  // _stripFences() handles all known variants so callers always get clean HTML.
+  return _stripFences(raw);
 }
 
 module.exports = { fixViolation };
