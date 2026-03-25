@@ -14,8 +14,32 @@
 
 "use strict";
 
-const { JSDOM } = require("jsdom");
+const { JSDOM, VirtualConsole } = require("jsdom");
 const axe = require("axe-core");
+
+/**
+ * Creates a VirtualConsole that silences known jsdom "not implemented"
+ * noise (e.g. HTMLCanvasElement.getContext) while forwarding everything
+ * else to the real Node.js console so genuine errors are still visible.
+ *
+ * @returns {VirtualConsole}
+ */
+function _makeVirtualConsole() {
+  const vc = new VirtualConsole();
+
+  // Forward all standard log levels to the real console.
+  vc.sendTo(console, { omitJSDOMErrors: true });
+
+  // jsdom emits "jsdomError" for unimplemented browser APIs (canvas, SVG,
+  // navigation, etc.). We filter out the canvas "not implemented" message
+  // specifically and let everything else through so real DOM errors surface.
+  vc.on("jsdomError", (err) => {
+    if (err.message && err.message.includes("Not implemented")) return;
+    console.error(err);
+  });
+
+  return vc;
+}
 
 /**
  * Internal helper — injects axe-core into a jsdom window and runs the audit.
@@ -52,9 +76,11 @@ async function _runAxe(dom) {
 async function auditHtml(htmlString) {
   // Set up a virtual browser environment using jsdom.
   // The `runScripts` option is needed for axe-core to execute inside the DOM.
+  // virtualConsole suppresses "Not implemented" noise from jsdom internals.
   const dom = new JSDOM(htmlString, {
     runScripts: "dangerously",
     resources: "usable",
+    virtualConsole: _makeVirtualConsole(),
   });
 
   return _runAxe(dom);
@@ -79,6 +105,7 @@ async function auditUrl(url) {
     runScripts: "dangerously",
     resources: "usable",
     pretendToBeVisual: true,
+    virtualConsole: _makeVirtualConsole(),
   });
 
   return _runAxe(dom);
