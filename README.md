@@ -40,8 +40,8 @@ $ node index.js examples/sample.html --max 4
 
   Auditing: sample.html
 
-  Found 4 accessibility violation(s).
-  Generating fixes for the first 4...
+  Found 10 broken element(s) across 4 rule(s).
+  Generating fixes for the first 4 element(s)...
 
   ════════════════════════════════════════════════════════════
   VIOLATION 1  [heading-order]
@@ -103,11 +103,14 @@ $ node index.js examples/sample.html --max 4
   ────────────────────────────────────────────────────────────
   🟢  AFTER  (AI-generated fix)
 
-  + <main role="main"><img src="hero.png"></main>
+  + <main role="main">
+  +   <img src="hero.png">
+  + </main>
 
   ════════════════════════════════════════════════════════════
 
-  ✔ Done. Processed 4 of 4 violation(s) found.
+  ✔ Done. Processed 4 of 10 violation(s) found.
+  ℹ  6 violation(s) not processed (run with --max <n> to process more).
   ℹ  Tip: run with --fix to write a corrected .fixed.html file to disk.
   ℹ  Tip: run with --strict to exit 1 on violations — use this in CI to gate deploys.
 ```
@@ -273,7 +276,7 @@ openspec/
 ├── fixer.js          # Groq SDK + Llama 3: prompt engineering and fix generation
 ├── diff.js           # Terminal UI: ANSI color diff renderer, zero extra deps
 ├── examples/
-│   └── sample.html   # Deliberately broken HTML with 4 WCAG violations
+│   └── sample.html   # Deliberately contains 10 broken HTML elements across 4 WCAG rules
 ├── .env.example      # Environment variable template
 ├── package.json      # Node.js dependencies
 └── LICENSE           # MIT License
