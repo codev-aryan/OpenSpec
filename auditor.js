@@ -32,7 +32,7 @@ function _makeVirtualConsole() {
   const vc = new VirtualConsole();
 
   // Forward all standard log levels to the real console.
-  vc.sendTo(console, { omitJSDOMErrors: true });
+  vc.forwardTo(console, { omitJSDOMErrors: true });
 
   // jsdom emits "jsdomError" for unimplemented browser APIs (canvas, SVG,
   // navigation, etc.). We filter out "Not implemented" messages specifically
