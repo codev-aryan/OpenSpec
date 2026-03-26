@@ -41,13 +41,6 @@ const { auditHtml, auditUrl } = require("./auditor");
 const { fixViolation } = require("./fixer");
 const { printBanner, printDiff, printSummary, printFixWritten } = require("./diff");
 
-// ─── Configuration ────────────────────────────────────────────────────────────
-
-// Limit the number of violations to auto-fix per run. Audits can surface
-// many issues; processing all of them in one shot can be slow and costly.
-// Increase this value to process more violations per run.
-const MAX_VIOLATIONS = 2;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -96,6 +89,11 @@ async function main() {
   const args = process.argv.slice(2);
   const fixFlag = args.includes("--fix");
   const strictFlag = args.includes("--strict");
+
+  // Parse --max <value> (fallback to 2 if not provided or invalid)
+  const maxFlagIndex = args.indexOf("--max");
+  const parsedMax = maxFlagIndex !== -1 ? parseInt(args[maxFlagIndex + 1], 10) : NaN;
+  const maxViolations = !isNaN(parsedMax) && parsedMax > 0 ? parsedMax : 2;
 
   // --url <value>: find the flag then grab the next token as its value.
   const urlFlagIndex = args.indexOf("--url");
@@ -163,12 +161,12 @@ async function main() {
   }
 
   console.log(`  Found ${violations.length} accessibility violation(s).`);
-  console.log(`  Generating fixes for the first ${Math.min(MAX_VIOLATIONS, violations.length)}...\n`);
+  console.log(`  Generating fixes for the first ${Math.min(maxViolations, violations.length)}...\n`);
 
   // ── Step 2: Fix & Render ──────────────────────────────────────────────────
   // Process violations sequentially to keep terminal output ordered and
   // avoid flooding the Groq API with concurrent requests.
-  const toProcess = violations.slice(0, MAX_VIOLATIONS);
+  const toProcess = violations.slice(0, maxViolations);
 
   // Accumulate {brokenHtml, fixedHtml} pairs so we can apply them to disk
   // at the end if --fix was passed. Pairs with failed fixes are skipped.
