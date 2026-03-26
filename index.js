@@ -48,6 +48,32 @@ const { printBanner, printDiff, printSummary, printFixWritten } = require("./dif
 // Increase this value to process more violations per run.
 const MAX_VIOLATIONS = 2;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Extracts a safe, loggable error message from any thrown value.
+ *
+ * Groq SDK errors include the full HTTP request context in their stack and
+ * properties — which can contain the Authorization header and therefore the
+ * API key. This function pulls only the status code and message text so we
+ * never accidentally print credentials to stdout/CI logs.
+ *
+ * @param {unknown} err - The caught error value.
+ * @returns {string} A sanitized, single-line error string safe to log.
+ */
+function _safeErrorMessage(err) {
+  if (!err) return "Unknown error";
+
+  // Groq SDK attaches a numeric `status` for HTTP errors (401, 429, 500, …).
+  // Include it so the user knows whether it's an auth, rate-limit, or server issue.
+  if (typeof err === "object" && err.status) {
+    return `Groq API error ${err.status}: ${err.message ?? "no message"}`;
+  }
+
+  // For everything else (network errors, timeouts, etc.) just use the message.
+  return err.message ?? String(err);
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -127,7 +153,7 @@ async function main() {
       ? await auditUrl(urlTarget)
       : await auditHtml(htmlContent);
   } catch (err) {
-    console.error("  ✖ Audit failed:", err.message);
+    console.error("  ✖ Audit failed:", _safeErrorMessage(err));
     process.exit(1);
   }
 
@@ -165,9 +191,10 @@ async function main() {
       // Only track pairs where the AI actually returned a fix.
       appliedFixes.push({ brokenHtml, fixedHtml });
     } catch (err) {
-      // If the AI fix fails for one violation, log the error and continue
-      // processing the remaining ones rather than crashing entirely.
-      console.error(`  ✖ Could not generate fix for [${violation.id}]: ${err.message}`);
+      // If the AI fix fails for one violation, log the sanitized error and
+      // continue processing the remaining ones rather than crashing entirely.
+      // _safeErrorMessage() ensures we never print the API key to stdout.
+      console.error(`  ✖ Could not generate fix for [${violation.id}]: ${_safeErrorMessage(err)}`);
       fixedHtml = "(fix generation failed — check your GROQ_API_KEY and network)";
     }
 
