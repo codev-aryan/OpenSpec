@@ -17,6 +17,10 @@
 const { JSDOM, VirtualConsole } = require("jsdom");
 const axe = require("axe-core");
 
+// How long (ms) to wait for a remote URL to respond before giving up.
+// Exposed as a constant so it's easy to override in tests or future CLI flags.
+const URL_TIMEOUT_MS = 15_000;
+
 /**
  * Creates a VirtualConsole that silences known jsdom "not implemented"
  * noise (e.g. HTMLCanvasElement.getContext) while forwarding everything
@@ -31,8 +35,8 @@ function _makeVirtualConsole() {
   vc.sendTo(console, { omitJSDOMErrors: true });
 
   // jsdom emits "jsdomError" for unimplemented browser APIs (canvas, SVG,
-  // navigation, etc.). We filter out the canvas "not implemented" message
-  // specifically and let everything else through so real DOM errors surface.
+  // navigation, etc.). We filter out "Not implemented" messages specifically
+  // and let everything else through so real DOM errors still surface.
   vc.on("jsdomError", (err) => {
     if (err.message && err.message.includes("Not implemented")) return;
     console.error(err);
@@ -90,6 +94,9 @@ async function auditHtml(htmlString) {
  * Fetches a live URL and audits the resulting DOM for WCAG accessibility violations.
  * Uses JSDOM.fromURL() which handles the HTTP request and DOM construction in one step.
  *
+ * Races the fetch against a URL_TIMEOUT_MS deadline so a slow or unreachable
+ * host never causes the process to hang indefinitely.
+ *
  * Note: JSDOM renders the initial HTML payload only — it does not execute JavaScript
  * or wait for client-side rendering. This means SPAs may show fewer violations than
  * a real browser would, but static and server-rendered sites audit accurately.
@@ -101,12 +108,24 @@ async function auditUrl(url) {
   // JSDOM.fromURL fetches the page over HTTP/S and constructs the DOM.
   // pretendToBeVisual gives axe-core a realistic layout environment so
   // visibility-related rules (e.g. color-contrast) can run correctly.
-  const dom = await JSDOM.fromURL(url, {
+  //
+  // Promise.race() pairs the fetch with a timeout sentinel so we always
+  // exit cleanly if the server is slow, unreachable, or stalls mid-response.
+  const fetchDom = JSDOM.fromURL(url, {
     runScripts: "dangerously",
     resources: "usable",
     pretendToBeVisual: true,
     virtualConsole: _makeVirtualConsole(),
   });
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`Request timed out after ${URL_TIMEOUT_MS / 1000}s — is the URL reachable?`)),
+      URL_TIMEOUT_MS
+    )
+  );
+
+  const dom = await Promise.race([fetchDom, timeout]);
 
   return _runAxe(dom);
 }
