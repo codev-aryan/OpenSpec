@@ -33,33 +33,81 @@ The web has a massive accessibility debt. The existing tooling makes developers 
 **OpenSpec** is a lightweight, open-source CLI tool that closes the loop. It audits your HTML, understands each violation, and hands you back corrected code — in seconds.
 
 ```
-$ node index.js ./examples/sample.html
+$ node index.js examples/sample.html --max 4
 
   ⚡ OpenSpec — Self-Healing Accessibility
   Powered by axe-core + Llama 3 via Groq
 
   Auditing: sample.html
-  Found 6 accessibility violation(s).
-  Generating fixes for the first 2...
+
+  Found 4 accessibility violation(s).
+  Generating fixes for the first 4...
 
   ════════════════════════════════════════════════════════════
-  VIOLATION 1  [image-alt]
-  Impact: CRITICAL
-  Ensures <img> elements have alternate text or a role of none or presentation.
-
+  VIOLATION 1  [heading-order]
+  Impact: MODERATE
+  Ensure the order of headings is semantically correct
   ────────────────────────────────────────────────────────────
   🔴  BEFORE
 
-  - <img src="hero.png" />
+  - <h4>Our Features</h4>
 
   ────────────────────────────────────────────────────────────
   🟢  AFTER  (AI-generated fix)
 
-  + <img src="hero.png" alt="Hero banner showing the product dashboard" />
+  + <h2>Our Features</h2>
 
   ════════════════════════════════════════════════════════════
 
-  ✔ Done. Processed 2 of 6 violation(s) found.
+  ════════════════════════════════════════════════════════════
+  VIOLATION 2  [html-has-lang]
+  Impact: SERIOUS
+  Ensure every HTML document has a lang attribute
+  ────────────────────────────────────────────────────────────
+  🔴  BEFORE
+
+  - <html>
+
+  ────────────────────────────────────────────────────────────
+  🟢  AFTER  (AI-generated fix)
+
+  + <html lang="en">
+
+  ════════════════════════════════════════════════════════════
+
+  ════════════════════════════════════════════════════════════
+  VIOLATION 3  [image-alt]
+  Impact: CRITICAL
+  Ensure <img> elements have alternative text or a role of none or presentation
+  ────────────────────────────────────────────────────────────
+  🔴  BEFORE
+
+  - <img src="hero.png">
+
+  ────────────────────────────────────────────────────────────
+  🟢  AFTER  (AI-generated fix)
+
+  + <img src="hero.png" alt="Hero image">
+
+  ════════════════════════════════════════════════════════════
+
+  ════════════════════════════════════════════════════════════
+  VIOLATION 4  [region]
+  Impact: MODERATE
+  Ensure all page content is contained by landmarks
+  ────────────────────────────────────────────────────────────
+  🔴  BEFORE
+
+  - <img src="hero.png">
+
+  ────────────────────────────────────────────────────────────
+  🟢  AFTER  (AI-generated fix)
+
+  + <main role="main"><img src="hero.png"></main>
+
+  ════════════════════════════════════════════════════════════
+
+  ✔ Done. Processed 4 of 4 violation(s) found.
   ℹ  Tip: run with --fix to write a corrected .fixed.html file to disk.
   ℹ  Tip: run with --strict to exit 1 on violations — use this in CI to gate deploys.
 ```
@@ -80,7 +128,9 @@ No boilerplate. No config files. No data leaves your machine except to the Groq 
 
 - **🚦 CI/CD Ready** — Pass `--strict` to exit with code `1` when violations are found. Drop it into any pipeline to gate deploys on accessibility.
 
-- **⚡ Fast by Design** — Groq's inference layer is among the fastest available. Fixes return in under 3 seconds per violation. No GPU, no Docker, no local model weights.
+- **🎛️ Tunable Depth** — Pass `--max <n>` to control how many violations are fixed per run. Default is 2 for speed; crank it up when you want a full sweep.
+
+- **⚡ Fast by Design** — Groq's inference layer is among the fastest available. Fixes return in under 3 seconds per violation. All Groq calls run concurrently — fixing 4 violations takes the same time as fixing 1. No GPU, no Docker, no local model weights.
 
 - **🎨 Color-Coded Terminal Diff** — Every fix renders as a Before/After diff with ANSI color highlighting. Impact severity (Critical / Serious / Moderate / Minor) is color-coded at a glance.
 
@@ -162,10 +212,18 @@ node index.js --url https://example.com
 ### Write fixes to disk
 
 ```bash
-node index.js ./examples/sample.html --fix
+node index.js examples/sample.html --fix
 ```
 
-Applies all AI-generated corrections to the original HTML and writes the result to `sample.fixed.html` in the same directory. The original file is never touched.
+Applies all AI-generated corrections and writes the result to `sample.fixed.html` in the same directory. The original file is never touched.
+
+### Control how many violations are fixed
+
+```bash
+node index.js examples/sample.html --max 4
+```
+
+Defaults to `2` for fast runs. Pass any number to sweep more violations in one pass. All fixes are generated concurrently — fixing 4 takes the same time as fixing 1.
 
 ### Gate CI deploys on accessibility
 
@@ -173,26 +231,18 @@ Applies all AI-generated corrections to the original HTML and writes the result 
 node index.js ./src/index.html --strict
 ```
 
-Exits with code `1` if any violations are found. Exit `0` means clean. Combine with `--fix` for a full self-healing pipeline step.
+Exits with code `1` if any violations are found, exit `0` means clean. This flag only affects the exit code — output is identical either way, making it safe to drop into any pipeline.
 
 ### Combining flags
 
 All flags are composable and can appear in any order:
 
 ```bash
-# Audit a file, write fixes, and fail CI if violations remain
-node index.js ./src/index.html --fix --strict
+# Audit, fix all violations, write to disk, and fail CI if any remain
+node index.js examples/sample.html --max 4 --fix --strict
 
 # Audit a live URL and fail CI if violations are found
 node index.js --url https://example.com --strict
-```
-
-### Tune how many violations are auto-fixed per run
-
-Open `index.js` and adjust this constant near the top:
-
-```js
-const MAX_VIOLATIONS = 2; // increase to process more violations per run
 ```
 
 ### GitHub Actions example
@@ -207,20 +257,10 @@ const MAX_VIOLATIONS = 2; // increase to process more violations per run
 ## Run the included example
 
 ```bash
-node index.js ./examples/sample.html
+node index.js examples/sample.html
 ```
 
-`examples/sample.html` is a deliberately inaccessible page containing 6 violations across missing `alt` tags, unlabelled form inputs, icon-only buttons, non-descriptive link text, and skipped heading levels — designed to demonstrate OpenSpec's full range.
-
----
-
-## Video Demo
-
-> 📹 **3-Minute Walkthrough**
-
-[![OpenSpec Demo](https://img.shields.io/badge/Watch%20Demo-YouTube-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=PLACEHOLDER)
-
-*The demo covers: running an audit on `sample.html`, reviewing the CRITICAL/SERIOUS impact breakdown, and watching Llama 3 fix 2 violations live in under 6 seconds.*
+`examples/sample.html` is a deliberately inaccessible page containing 4 WCAG violations — a missing `alt` attribute, a missing `lang` attribute, a skipped heading level, and content outside a landmark region. It's designed to demonstrate OpenSpec's full audit-and-fix loop out of the box.
 
 ---
 
@@ -232,12 +272,11 @@ openspec/
 ├── auditor.js        # axe-core + jsdom: virtual DOM audit engine (file + URL)
 ├── fixer.js          # Groq SDK + Llama 3: prompt engineering and fix generation
 ├── diff.js           # Terminal UI: ANSI color diff renderer, zero extra deps
+├── examples/
+│   └── sample.html   # Deliberately broken HTML with 4 WCAG violations
 ├── .env.example      # Environment variable template
 ├── package.json      # Node.js dependencies
-├── LICENSE           # MIT License
-├── README.md         # You are here
-└── examples/
-    └── sample.html   # Deliberately broken HTML with 6 WCAG violations
+└── LICENSE           # MIT License
 ```
 
 Each module owns exactly one concern. `index.js` contains no business logic — only orchestration. `auditor.js`, `fixer.js`, and `diff.js` are independently testable and swappable without touching the rest of the codebase.
@@ -262,6 +301,7 @@ The returned string is dropped directly into the terminal diff with no post-proc
 |---|---|---|
 | `<file>` | File | Path to a local HTML file to audit |
 | `--url <url>` | URL | Fetch and audit a live URL |
+| `--max <n>` | Both | Number of violations to fix per run (default: 2) |
 | `--fix` | File only | Write AI-corrected HTML to `<filename>.fixed.html` |
 | `--strict` | Both | Exit code `1` if any violations are found |
 
@@ -272,7 +312,7 @@ The returned string is dropped directly into the terminal diff with no post-proc
 - [ ] Watch mode (`--watch`) for live re-auditing on file save
 - [ ] `--output report.json` flag for structured violation + fix export
 - [ ] Support for auditing entire directories in batch mode
-- [ ] VS Code extension wrapper
+- [ ] Live progress indicator while Groq fixes are being generated
 
 ---
 
