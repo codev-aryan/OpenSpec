@@ -160,7 +160,7 @@ function printSummary(total, fixed, writeMode = false, strictMode = false) {
   if (total > fixed) {
     console.log(
       style(
-        `  ℹ  ${total - fixed} violation(s) not processed (increase MAX_VIOLATIONS in index.js to fix more).`,
+      `  ℹ  ${total - fixed} violation(s) not processed (run with --max <n> to process more).`,
         ANSI.dim
       )
     );

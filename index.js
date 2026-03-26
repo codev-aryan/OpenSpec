@@ -19,12 +19,14 @@
  *   in its own module, making individual components independently testable
  *   and replaceable without touching the rest of the codebase.
  *
- * Usage:
+* Usage:
  *   node index.js [path-to-html-file]
  *   node index.js ./examples/sample.html
  *   node index.js ./examples/sample.html --fix
  *   node index.js ./examples/sample.html --strict
  *   node index.js ./examples/sample.html --fix --strict
+ *   node index.js ./examples/sample.html --max 5
+ *   node index.js ./examples/sample.html --max 5 --fix --strict
  *   node index.js --url https://example.com
  *   node index.js --url https://example.com --strict
  */
