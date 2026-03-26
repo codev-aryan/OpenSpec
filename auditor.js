@@ -94,6 +94,7 @@ async function auditHtml(htmlString) {
   const dom = new JSDOM(htmlString, {
     runScripts: "dangerously",
     resources: "usable",
+    pretendToBeVisual: true,
     virtualConsole: _makeVirtualConsole(),
   });
 
