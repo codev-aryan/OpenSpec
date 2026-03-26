@@ -208,17 +208,17 @@ async function main() {
     });
   }
 
-  // ── Step 3: Write fixed file to disk (--fix, file mode only) ─────────────
+// ── Step 3: Write fixed file to disk (--fix, file mode only) ─────────────
   if (fixFlag && !urlTarget) {
     if (appliedFixes.length === 0) {
       console.log("  ℹ  --fix: No successful fixes to apply.\n");
     } else {
       // Apply each fix as a simple string replacement on the original HTML.
-      // This preserves all surrounding markup exactly — we only swap out the
-      // specific failing node snippets that axe-core and the AI both touched.
+      // We use .replace() instead of .replaceAll() so we only patch the first 
+      // matching instance, preventing corruption of duplicate identical nodes.
       let patchedHtml = htmlContent;
       for (const { brokenHtml, fixedHtml } of appliedFixes) {
-        patchedHtml = patchedHtml.replaceAll(brokenHtml, fixedHtml);
+        patchedHtml = patchedHtml.replace(brokenHtml, fixedHtml);
       }
 
       // Write to <originalname>.fixed.html in the same directory as the source.
