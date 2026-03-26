@@ -32,7 +32,7 @@
 "use strict";
 
 // Load .env variables (GROQ_API_KEY) into process.env before any other imports.
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
 const fs = require("fs");
 const path = require("path");
