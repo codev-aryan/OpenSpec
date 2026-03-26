@@ -31,19 +31,29 @@ const URL_TIMEOUT_MS = 15_000;
 function _makeVirtualConsole() {
   const vc = new VirtualConsole();
 
-  // Forward all standard log levels to the real console.
-  vc.forwardTo(console, { omitJSDOMErrors: true });
+  // Create a proxy console to intercept the canvas error before it hits the terminal
+  const filteredConsole = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    dir: console.dir.bind(console),
+    error: (...args) => {
+      // Catch and silently drop the specific canvas warning
+      if (typeof args[0] === "string" && args[0].includes("HTMLCanvasElement's getContext()")) {
+        return; 
+      }
+      // Forward all other errors normally
+      console.error(...args);
+    }
+  };
 
-  // jsdom emits "jsdomError" for unimplemented browser APIs (canvas, SVG,
-  // navigation, etc.). We filter out "Not implemented" messages specifically
-  // and let everything else through so real DOM errors still surface.
-  vc.on("jsdomError", (err) => {
-    if (err.message && err.message.includes("Not implemented")) return;
-    console.error(err);
-  });
+  // Pipe virtual events to our filtered console instead of the raw global console.
+  // Note: Use forwardTo() for jsdom v27+, or sendTo() for older versions.
+  vc.forwardTo(filteredConsole, { omitJSDOMErrors: true });
 
   return vc;
 }
+
 
 /**
  * Internal helper — injects axe-core into a jsdom window and runs the audit.
