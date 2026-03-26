@@ -164,45 +164,41 @@ async function main() {
   console.log(`  Generating fixes for the first ${Math.min(maxViolations, violations.length)}...\n`);
 
   // ── Step 2: Fix & Render ──────────────────────────────────────────────────
-  // Process violations sequentially to keep terminal output ordered and
-  // avoid flooding the Groq API with concurrent requests.
-  const toProcess = violations.slice(0, maxViolations);
-
-  // Accumulate {brokenHtml, fixedHtml} pairs so we can apply them to disk
-  // at the end if --fix was passed. Pairs with failed fixes are skipped.
+  const toProcess = violations.slice(0, maxViolations); // (or MAX_VIOLATIONS if you didn't apply Bug 7 yet)
   const appliedFixes = [];
 
-  for (let i = 0; i < toProcess.length; i++) {
-    const violation = toProcess[i];
-
-    // axe-core returns `nodes`, each with a `html` property containing the
-    // specific element that failed the rule. We use the first failing node.
+  // 1. Fire all Groq API requests concurrently
+  const fixPromises = toProcess.map(async (violation, i) => {
     const brokenHtml = violation.nodes[0]?.html ?? "(no HTML snippet available)";
-
     let fixedHtml;
+    
     try {
-      fixedHtml = await fixViolation(
-        brokenHtml,
-        violation.description,
-        violation.id
-      );
-      // Only track pairs where the AI actually returned a fix.
-      appliedFixes.push({ brokenHtml, fixedHtml });
+      fixedHtml = await fixViolation(brokenHtml, violation.description, violation.id);
     } catch (err) {
-      // If the AI fix fails for one violation, log the sanitized error and
-      // continue processing the remaining ones rather than crashing entirely.
       // _safeErrorMessage() ensures we never print the API key to stdout.
       console.error(`  ✖ Could not generate fix for [${violation.id}]: ${_safeErrorMessage(err)}`);
       fixedHtml = "(fix generation failed — check your GROQ_API_KEY and network)";
     }
+    
+    return { index: i, violation, brokenHtml, fixedHtml };
+  });
+
+  // 2. Wait for all of them to finish at the same time
+  const processedViolations = await Promise.all(fixPromises);
+
+  // 3. Render the UI sequentially so the terminal diffs stay in perfect order
+  for (const result of processedViolations) {
+    if (!result.fixedHtml.includes("(fix generation failed")) {
+      appliedFixes.push({ brokenHtml: result.brokenHtml, fixedHtml: result.fixedHtml });
+    }
 
     printDiff({
-      index: i + 1,
-      violationId: violation.id,
-      description: violation.description,
-      impact: violation.impact,
-      brokenHtml,
-      fixedHtml,
+      index: result.index + 1,
+      violationId: result.violation.id,
+      description: result.violation.description,
+      impact: result.violation.impact,
+      brokenHtml: result.brokenHtml,
+      fixedHtml: result.fixedHtml,
     });
   }
 
