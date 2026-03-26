@@ -7,7 +7,7 @@
  *   1. Load environment variables from .env (Groq API key).
  *   2. Read the target — either a local HTML file or a live URL (--url).
  *   3. Audit it using axe-core (auditor.js) and collect violations.
- *   4. For each violation (up to MAX_VIOLATIONS), extract the broken HTML
+ *   4. For each violation (up to --max), extract the broken HTML
  *      snippet and send it to the Groq/Llama 3 fixer (fixer.js).
  *   5. Render the Before/After diff to the terminal (diff.js).
  *   6. If --fix is passed (file mode only), apply all fixes to the original
@@ -19,7 +19,7 @@
  *   in its own module, making individual components independently testable
  *   and replaceable without touching the rest of the codebase.
  *
-* Usage:
+ * Usage:
  *   node index.js [path-to-html-file]
  *   node index.js ./examples/sample.html
  *   node index.js ./examples/sample.html --fix
@@ -88,21 +88,35 @@ async function main() {
   //   --url    audit a live URL instead of a local file (e.g. --url https://example.com)
   //   --fix    write a .fixed.html file to disk after generating fixes (file mode only)
   //   --strict exit with code 1 if any violations are found (for CI gates)
+  //   --max    number of violations to fix per run (default: 2)
   const args = process.argv.slice(2);
   const fixFlag = args.includes("--fix");
   const strictFlag = args.includes("--strict");
 
-  // Parse --max <value> (fallback to 2 if not provided or invalid)
+  // Parse --max <value>
+  // Guards against: --max with no value, --max followed by another flag,
+  // and --max consuming the file path argument.
   const maxFlagIndex = args.indexOf("--max");
-  const parsedMax = maxFlagIndex !== -1 ? parseInt(args[maxFlagIndex + 1], 10) : NaN;
+  const maxRawValue = maxFlagIndex !== -1 ? args[maxFlagIndex + 1] : null;
+
+  if (maxFlagIndex !== -1 && (!maxRawValue || maxRawValue.startsWith("--"))) {
+    console.error("  ✖ Error: --max requires a number. Example: --max 4\n");
+    process.exit(1);
+  }
+
+  const parsedMax = maxRawValue ? parseInt(maxRawValue, 10) : NaN;
   const maxViolations = !isNaN(parsedMax) && parsedMax > 0 ? parsedMax : 2;
 
   // --url <value>: find the flag then grab the next token as its value.
   const urlFlagIndex = args.indexOf("--url");
   const urlTarget = urlFlagIndex !== -1 ? args[urlFlagIndex + 1] : null;
 
-  // Any non-flag argument that isn't the value after --url is the file path.
-  const fileArg = args.find((a, i) => !a.startsWith("--") && i !== urlFlagIndex + 1);
+  // Any non-flag argument that isn't the value after --url or --max is the file path.
+  const fileArg = args.find((a, i) =>
+    !a.startsWith("--") &&
+    i !== urlFlagIndex + 1 &&
+    i !== maxFlagIndex + 1
+  );
 
   // ── Resolve the audit target ───────────────────────────────────────────────
   let htmlContent = null;    // populated in file mode; null in URL mode
@@ -166,14 +180,14 @@ async function main() {
   console.log(`  Generating fixes for the first ${Math.min(maxViolations, violations.length)}...\n`);
 
   // ── Step 2: Fix & Render ──────────────────────────────────────────────────
-  const toProcess = violations.slice(0, maxViolations); // (or MAX_VIOLATIONS if you didn't apply Bug 7 yet)
+  const toProcess = violations.slice(0, maxViolations);
   const appliedFixes = [];
 
   // 1. Fire all Groq API requests concurrently
   const fixPromises = toProcess.map(async (violation, i) => {
     const brokenHtml = violation.nodes[0]?.html ?? "(no HTML snippet available)";
     let fixedHtml;
-    
+
     try {
       fixedHtml = await fixViolation(brokenHtml, violation.description, violation.id);
     } catch (err) {
@@ -181,7 +195,7 @@ async function main() {
       console.error(`  ✖ Could not generate fix for [${violation.id}]: ${_safeErrorMessage(err)}`);
       fixedHtml = "(fix generation failed — check your GROQ_API_KEY and network)";
     }
-    
+
     return { index: i, violation, brokenHtml, fixedHtml };
   });
 
@@ -204,13 +218,13 @@ async function main() {
     });
   }
 
-// ── Step 3: Write fixed file to disk (--fix, file mode only) ─────────────
+  // ── Step 3: Write fixed file to disk (--fix, file mode only) ─────────────
   if (fixFlag && !urlTarget) {
     if (appliedFixes.length === 0) {
       console.log("  ℹ  --fix: No successful fixes to apply.\n");
     } else {
       // Apply each fix as a simple string replacement on the original HTML.
-      // We use .replace() instead of .replaceAll() so we only patch the first 
+      // We use .replace() instead of .replaceAll() so we only patch the first
       // matching instance, preventing corruption of duplicate identical nodes.
       let patchedHtml = htmlContent;
       for (const { brokenHtml, fixedHtml } of appliedFixes) {
