@@ -12,7 +12,7 @@
 
 <br/>
 
-> **Audit. Understand. Fix.** — OpenSpec doesn't just report accessibility errors. It eliminates them.
+> **Audit. Understand. Fix.** OpenSpec doesn't just report accessibility errors. It eliminates them.
 
 </div>
 
@@ -22,7 +22,7 @@
 
 **96% of the top 1,000,000 websites fail basic WCAG accessibility tests** (WebAIM Million Report, 2024).
 
-Every major accessibility tool — Lighthouse, axe DevTools, WAVE — stops at the same place: a list of violations. They hand you a report and walk away. The result? Developers are buried under cryptic rule IDs, documentation rabbit holes, and manual fixes that take hours.
+Every major accessibility tool (Lighthouse, axe DevTools, WAVE) stops at the same place: a list of violations. They hand you a report and walk away. The result? Developers are buried under cryptic rule IDs, documentation rabbit holes, and manual fixes that take hours.
 
 The web has a massive accessibility debt. The existing tooling makes developers the ones who pay it.
 
@@ -30,7 +30,7 @@ The web has a massive accessibility debt. The existing tooling makes developers 
 
 ## The Solution
 
-**OpenSpec** is a lightweight, open-source CLI tool that closes the loop. It audits your HTML, understands each violation, and hands you back corrected code — in seconds.
+**OpenSpec** is a lightweight, open-source CLI tool that closes the loop. It audits your HTML, understands each violation, and hands you back corrected code in seconds.
 
 ```
 $ node index.js examples/sample.html --max 4
@@ -129,17 +129,17 @@ No boilerplate. No config files. No data leaves your machine except to the Groq 
 
 - **💾 Write Fixes to Disk** — Pass `--fix` to apply all AI-generated corrections and write the result to `<filename>.fixed.html`. The original is never modified.
 
-- **🚦 CI/CD Ready** — Pass `--strict` to exit with code `1` when violations are found. Drop it into any pipeline to gate deploys on accessibility.
+- **🚦 CI/CD Ready** — Pass `--strict` to exit with code `1` when violations are found. Use the official GitHub Action to drop it into any pipeline in seconds.
 
 - **🎛️ Tunable Depth** — Pass `--max <n>` to control how many violations are fixed per run. Default is 2 for speed; crank it up when you want a full sweep.
 
-- **⚡ Fast by Design** — Groq's inference layer is among the fastest available. Fixes return in under 3 seconds per violation. All Groq calls run concurrently — fixing 4 violations takes the same time as fixing 1. No GPU, no Docker, no local model weights.
+- **⚡ Fast by Design** — Groq's inference layer is among the fastest available. All Groq calls run concurrently, so fixing 4 violations takes the same time as fixing 1. No GPU, no Docker, no local model weights.
 
 - **🎨 Color-Coded Terminal Diff** — Every fix renders as a Before/After diff with ANSI color highlighting. Impact severity (Critical / Serious / Moderate / Minor) is color-coded at a glance.
 
 - **📦 Truly Lightweight** — Four runtime dependencies. No Electron, no browser extension, no SaaS subscription. Runs anywhere Node.js 18+ runs.
 
-- **🔓 100% Open Source** — MIT licensed. The audit logic, the AI prompt, the diff renderer — all of it is yours to inspect, fork, and extend.
+- **🔓 100% Open Source** — MIT licensed. The audit logic, the AI prompt, the diff renderer. All of it is yours to inspect, fork, and extend.
 
 ---
 
@@ -226,7 +226,7 @@ Applies all AI-generated corrections and writes the result to `sample.fixed.html
 node index.js examples/sample.html --max 4
 ```
 
-Defaults to `2` for fast runs. Pass any number to sweep more violations in one pass. All fixes are generated concurrently — fixing 4 takes the same time as fixing 1.
+Defaults to `2` for fast runs. Pass any number to sweep more violations in one pass. All fixes are generated concurrently, so fixing 4 takes the same time as fixing 1.
 
 ### Gate CI deploys on accessibility
 
@@ -234,7 +234,7 @@ Defaults to `2` for fast runs. Pass any number to sweep more violations in one p
 node index.js ./src/index.html --strict
 ```
 
-Exits with code `1` if any violations are found, exit `0` means clean. This flag only affects the exit code — output is identical either way, making it safe to drop into any pipeline.
+Exits with code `1` if any violations are found, exit `0` means clean. This flag only affects the exit code, making it safe to drop into any pipeline.
 
 ### Combining flags
 
@@ -248,12 +248,75 @@ node index.js examples/sample.html --max 4 --fix --strict
 node index.js --url https://example.com --strict
 ```
 
-### GitHub Actions example
+---
+
+## GitHub Actions
+
+OpenSpec ships with an official GitHub Action. Add it to any workflow to automatically audit your HTML and block deployments when accessibility violations are found.
+
+### Setup
+
+Add your Groq API key to your repository secrets:
+
+1. Go to **Settings > Secrets and variables > Actions**
+2. Click **New repository secret**
+3. Name it `GROQ_API_KEY` and paste your key
+
+### Basic usage
 
 ```yaml
-- name: Audit accessibility
-  run: node index.js ./src/index.html --strict
+name: Accessibility Audit
+
+on: [push, pull_request]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run OpenSpec
+        uses: codev-aryan/openspec@main
+        with:
+          target: index.html
+          groq_api_key: ${{ secrets.GROQ_API_KEY }}
 ```
+
+This will audit `index.html` on every push and pull request. The workflow fails if any WCAG violations are found.
+
+### Action inputs
+
+| Input | Required | Default | Description |
+|---|---|---|---|
+| `target` | Yes | `index.html` | File path or URL to audit |
+| `groq_api_key` | Yes | | Your Groq API key |
+| `max` | No | `5` | Max number of violations to process |
+
+
+### Full pipeline example
+
+```yaml
+name: Accessibility Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Audit accessibility
+        uses: codev-aryan/openspec@main
+        with:
+          target: ./src/index.html
+          groq_api_key: ${{ secrets.GROQ_API_KEY }}
+          max: 10
+```
+
+Pull requests that introduce accessibility violations will be blocked automatically.
 
 ---
 
@@ -263,7 +326,7 @@ node index.js --url https://example.com --strict
 node index.js examples/sample.html
 ```
 
-`examples/sample.html` is a deliberately inaccessible page containing 4 WCAG violations — a missing `alt` attribute, a missing `lang` attribute, a skipped heading level, and content outside a landmark region. It's designed to demonstrate OpenSpec's full audit-and-fix loop out of the box.
+`examples/sample.html` is a deliberately inaccessible page with violations across missing alt attributes, missing lang attribute, skipped heading levels, unlabelled inputs, icon-only buttons, non-descriptive link text, and low-contrast text. It's designed to demonstrate OpenSpec's full audit-and-fix loop out of the box.
 
 ---
 
@@ -271,18 +334,19 @@ node index.js examples/sample.html
 
 ```
 openspec/
-├── index.js          # CLI entry point and orchestrator — thin by design
+├── index.js          # CLI entry point and orchestrator
 ├── auditor.js        # axe-core + jsdom: virtual DOM audit engine (file + URL)
 ├── fixer.js          # Groq SDK + Llama 3: prompt engineering and fix generation
 ├── diff.js           # Terminal UI: ANSI color diff renderer, zero extra deps
+├── action.yml        # GitHub Action definition
 ├── examples/
-│   └── sample.html   # Deliberately contains 10 broken HTML elements across 4 WCAG rules
+│   └── sample.html   # Deliberately broken HTML with WCAG violations
 ├── .env.example      # Environment variable template
 ├── package.json      # Node.js dependencies
 └── LICENSE           # MIT License
 ```
 
-Each module owns exactly one concern. `index.js` contains no business logic — only orchestration. `auditor.js`, `fixer.js`, and `diff.js` are independently testable and swappable without touching the rest of the codebase.
+Each module owns exactly one concern. `index.js` contains no business logic, only orchestration. `auditor.js`, `fixer.js`, and `diff.js` are independently testable and swappable without touching the rest of the codebase.
 
 ---
 
@@ -290,11 +354,11 @@ Each module owns exactly one concern. `index.js` contains no business logic — 
 
 The prompt sent to Llama 3 is intentionally strict:
 
-- The system prompt constrains the model to act as a pure **code transformer**, not an explainer — it must return raw HTML and nothing else.
+- The system prompt constrains the model to act as a pure **code transformer**, not an explainer. It must return raw HTML and nothing else.
 - `temperature: 0.2` keeps output deterministic and prevents the model from adding markdown fences, prose, or creative rewrites.
-- Each call receives only the single failing HTML node and its axe-core rule description — no surrounding page context that could dilute the output.
+- Each call receives only the single failing HTML node and its axe-core rule description. No surrounding page context that could dilute the output.
 
-The returned string is dropped directly into the terminal diff with no post-processing required. When `--fix` is passed, it is also applied back to the original HTML via surgical string replacement — only the exact failing nodes are swapped, everything else is preserved byte-for-byte.
+The returned string is dropped directly into the terminal diff with no post-processing required. When `--fix` is passed, it is applied back to the original HTML via surgical string replacement. Only the exact failing nodes are swapped, everything else is preserved byte-for-byte.
 
 ---
 
