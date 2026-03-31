@@ -7,8 +7,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen)](https://nodejs.org/)
 [![Powered by axe-core](https://img.shields.io/badge/Powered%20by-axe--core-663399)](https://github.com/dequelabs/axe-core)
-[![Model: Llama 3](https://img.shields.io/badge/LLM-Llama%203%20via%20Groq-orange)](https://groq.com/)
+[![Model: Llama 3](https://img.shields.io/badge/LLM-Llama%203%20(Open%20Weights)-orange)](https://llama.meta.com/)
 [![FOSS 2026](https://img.shields.io/badge/FOSS%202026-Submission-blue)]()
+
+<br/>
+
+**[🎥 Watch the 3-Minute Video Demo here](https://youtu.be/4YKAK17czUE)**
 
 <br/>
 
@@ -123,7 +127,7 @@ No boilerplate. No config files. No data leaves your machine except to the Groq 
 
 - **🔍 Powered by `axe-core`** — The industry-standard accessibility engine trusted by Google, Microsoft, and Deloitte. Battle-tested WCAG 2.1/2.2 rule coverage running inside `jsdom`, no real browser required.
 
-- **🤖 AI-Generated Fixes, Not Just Reports** — Uses the Groq API (Llama 3) to read each violation in context and generate semantically correct, human-readable ARIA attributes and HTML corrections.
+- **🤖 Open-Weight AI Fixes** — Uses **Llama 3 (8B)**, an open-weight model, to read each violation in context and generate semantically correct HTML corrections. *(Note: Currently configured to use Groq's API purely for fast, free inference during the hackathon, but the prompt architecture is provider-agnostic and fully compatible with local FOSS runners like Ollama).*
 
 - **🌐 Audit Files or Live URLs** — Point OpenSpec at a local HTML file or any live website with `--url https://example.com`. No browser, no Puppeteer, no Playwright.
 
@@ -149,7 +153,7 @@ No boilerplate. No config files. No data leaves your machine except to the Groq 
 |---|---|
 | Runtime | Node.js 18+ (CommonJS) |
 | Accessibility Engine | `axe-core` + `jsdom` |
-| AI / LLM | Groq API · Llama 3 `llama-3.1-8b-instant` (open-weight) |
+| AI / LLM | **Llama 3** `llama-3.1-8b-instant` (Open-weight model) <br/> *Inference provided by Groq for demo speed* |
 | Environment Config | `dotenv` |
 | Terminal UI | Raw ANSI escape codes (zero extra deps) |
 | License | MIT |
