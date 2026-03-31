@@ -81,8 +81,8 @@ async function main() {
 
   const fileArg = args.find((a, i) =>
     !a.startsWith("--") &&
-    i !== urlFlagIndex + 1 &&
-    i !== maxFlagIndex + 1
+    (urlFlagIndex === -1 || i !== urlFlagIndex + 1) &&
+    (maxFlagIndex === -1 || i !== maxFlagIndex + 1)
   );
 
   // ── Resolve the audit target ───────────────────────────────────────────────
